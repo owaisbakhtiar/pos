@@ -14,6 +14,7 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "outline";
   style?: ViewStyle;
   textStyle?: TextStyle;
+  disabled?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -22,21 +23,26 @@ export const Button: React.FC<ButtonProps> = ({
   variant = "primary",
   style,
   textStyle,
+  disabled = false,
 }) => {
   const getButtonStyle = () => {
     switch (variant) {
       case "primary":
-        return styles.primaryButton;
+        return disabled ? [styles.primaryButton, styles.disabledButton] : styles.primaryButton;
       case "secondary":
-        return styles.secondaryButton;
+        return disabled ? [styles.secondaryButton, styles.disabledButton] : styles.secondaryButton;
       case "outline":
-        return styles.outlineButton;
+        return disabled ? [styles.outlineButton, styles.disabledOutlineButton] : styles.outlineButton;
       default:
-        return styles.primaryButton;
+        return disabled ? [styles.primaryButton, styles.disabledButton] : styles.primaryButton;
     }
   };
 
   const getTextStyle = () => {
+    if (disabled) {
+      return styles.disabledText;
+    }
+    
     switch (variant) {
       case "outline":
         return styles.outlineText;
@@ -49,6 +55,7 @@ export const Button: React.FC<ButtonProps> = ({
     <TouchableOpacity
       style={[styles.button, getButtonStyle(), style]}
       onPress={onPress}
+      disabled={disabled}
     >
       <Text style={[styles.text, getTextStyle(), textStyle]}>{title}</Text>
     </TouchableOpacity>
@@ -58,12 +65,13 @@ export const Button: React.FC<ButtonProps> = ({
 const styles = StyleSheet.create({
   button: {
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
+    height: 48,
   },
   primaryButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#7367F0',
   },
   secondaryButton: {
     backgroundColor: colors.secondary,
@@ -71,16 +79,26 @@ const styles = StyleSheet.create({
   outlineButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#7367F0',
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
+  },
+  disabledOutlineButton: {
+    borderColor: '#CCCCCC',
   },
   text: {
     ...typography.body,
     fontWeight: "600",
+    fontSize: 16,
   },
   primaryText: {
-    color: colors.background,
+    color: 'white',
   },
   outlineText: {
-    color: colors.primary,
+    color: '#7367F0',
+  },
+  disabledText: {
+    color: '#999999',
   },
 });

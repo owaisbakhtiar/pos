@@ -2,11 +2,14 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import HomeScreen from "../screens/Home/HomeScreen";
 import FeedCalculatorScreen from "../screens/FeedCalculator/FeedCalculatorScreen";
 import InseminationScreen from "../screens/Insemination/InseminationScreen";
-import CalfRegisterScreen from "../screens/CalfRegister/CalfRegisterScreen";
 import VaccinationScreen from "../screens/Vaccination/VaccinationScreen";
 import MilkRecordScreen from "../screens/MilkRecord/MilkRecordScreen";
+import AnimalListScreen from "../screens/AnimalList/AnimalListScreen";
+import AnimalRecordsScreen from "../screens/AnimalRecords/AnimalRecordsScreen";
+import RegisterStack from "./RegisterStack";
 import { colors } from "../theme";
 
 const Tab = createBottomTabNavigator();
@@ -31,8 +34,8 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             }
           };
 
-          // Create center add button
-          if (index === 2) {
+          // Create center add button for Register tab
+          if (route.name === "Register") {
             return (
               <TouchableOpacity
                 key={route.key}
@@ -55,7 +58,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               {options.tabBarIcon &&
                 options.tabBarIcon({
                   focused: isFocused,
-                  color: isFocused ? colors.primary : colors.textSecondary,
+                  color: isFocused ? "#7367F0" : colors.textSecondary,
                   size: 24,
                 })}
             </TouchableOpacity>
@@ -78,17 +81,23 @@ export default function BottomTabs() {
             case "Home":
               iconName = "home-outline";
               break;
-            case "Price":
-              iconName = "pricetag-outline";
+            case "Feed":
+              iconName = "nutrition-outline";
               break;
-            case "Add":
-              iconName = "add-circle";
+            case "Register":
+              iconName = "add";
               break;
-            case "Messages":
-              iconName = "mail-outline";
+            case "Vaccination":
+              iconName = "medkit-outline";
               break;
-            case "Settings":
-              iconName = "settings-outline";
+            case "Milk":
+              iconName = "help-circle-outline";
+              break;
+            case "AnimalList":
+              iconName = "list-outline";
+              break;
+            case "AnimalRecords":
+              iconName = "paw-outline";
               break;
             default:
               iconName = "help-circle-outline";
@@ -99,11 +108,13 @@ export default function BottomTabs() {
         tabBarShowLabel: false,
       })}
     >
-      <Tab.Screen name="Home" component={FeedCalculatorScreen} />
-      <Tab.Screen name="Price" component={InseminationScreen} />
-      <Tab.Screen name="Add" component={CalfRegisterScreen} />
-      <Tab.Screen name="Messages" component={VaccinationScreen} />
-      <Tab.Screen name="Settings" component={MilkRecordScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Feed" component={FeedCalculatorScreen} />
+      <Tab.Screen name="Register" component={RegisterStack} />
+      <Tab.Screen name="AnimalList" component={AnimalListScreen} />
+      <Tab.Screen name="AnimalRecords" component={AnimalRecordsScreen} />
+      <Tab.Screen name="Vaccination" component={VaccinationScreen} />
+      <Tab.Screen name="Milk" component={MilkRecordScreen} />
     </Tab.Navigator>
   );
 }
@@ -115,7 +126,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 4,
+    paddingBottom: 16,
   },
   tabBar: {
     flexDirection: "row",
@@ -148,14 +159,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   addButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: "#7367F0",
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
-    shadowColor: colors.primary,
+    marginBottom: 24,
+    shadowColor: "#7367F0",
     shadowOffset: {
       width: 0,
       height: 4,
