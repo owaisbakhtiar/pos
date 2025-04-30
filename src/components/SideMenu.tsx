@@ -76,7 +76,7 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
     { title: 'Animal Records', icon: 'paw-outline', screen: 'AnimalRecords' },
     { title: 'Feed Management', icon: 'leaf-outline', screen: 'Feed' },
     { title: 'Breeding', icon: 'heart-outline', screen: 'Home' },
-    { title: 'Health Records', icon: 'medkit-outline', screen: 'Vaccination' },
+    { title: 'Health Records', icon: 'medkit-outline', screen: 'HealthRecords' },
     { title: 'Milk Records', icon: 'water-outline', screen: 'Milk' },
     { title: 'Financial Records', icon: 'cash-outline', screen: 'Home' },
     { title: 'Reports', icon: 'bar-chart-outline', screen: 'Home' },

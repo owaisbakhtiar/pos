@@ -15,6 +15,11 @@ import ProfileStack from "./src/navigation/ProfileStack";
 import AddAnimalScreen from "./src/screens/AnimalRecords/AddAnimalScreen";
 import AnimalDetailScreen from "./src/screens/AnimalRecords/AnimalDetailScreen";
 import EditAnimalScreen from "./src/screens/AnimalRecords/EditAnimalScreen";
+import HealthRecordsScreen from "./src/screens/HealthRecords/HealthRecordsScreen";
+import AddHealthRecordScreen from "./src/screens/HealthRecords/AddHealthRecordScreen";
+import EditHealthRecordScreen from "./src/screens/HealthRecords/EditHealthRecordScreen";
+import HealthRecordDetailScreen from "./src/screens/HealthRecords/HealthRecordDetailScreen";
+import ManageVeterinariansScreen from "./src/screens/HealthRecords/ManageVeterinariansScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -50,6 +55,12 @@ function AppNavigator() {
             <Stack.Screen name="AddAnimal" component={AddAnimalScreen} />
             <Stack.Screen name="AnimalDetail" component={AnimalDetailScreen} />
             <Stack.Screen name="EditAnimal" component={EditAnimalScreen} />
+            <Stack.Screen name="HealthRecords" component={HealthRecordsScreen} />
+            <Stack.Screen name="AddHealthRecord" component={AddHealthRecordScreen} />
+            <Stack.Screen name="EditHealthRecord" component={EditHealthRecordScreen} />
+            <Stack.Screen name="HealthRecordDetail" component={HealthRecordDetailScreen} />
+            <Stack.Screen name="ManageVeterinarians" component={ManageVeterinariansScreen} />
+            <Stack.Screen name="ManageVaccines" component={PlaceholderScreen} />
             <Stack.Screen name="Profile" component={ProfileStack} />
             
             {/* Placeholder screens for side menu items */}
