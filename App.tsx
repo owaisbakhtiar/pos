@@ -1,43 +1,79 @@
+import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import BottomTabs from "./src/navigation/BottomTabs";
 import AuthStack from "./src/navigation/AuthStack";
-import { View } from "react-native";
+import { View, ActivityIndicator, Text } from "react-native";
 import { colors } from "./src/theme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useState, useEffect } from "react";
-import AuthService from "./src/services/AuthService";
+import { AuthProvider, useAuth } from "./src/context/AuthContext";
+import Toast from 'react-native-toast-message';
+import SettingsStack from "./src/navigation/SettingsStack";
+import AnimalRecordsScreen from "./src/screens/AnimalRecords/AnimalRecordsScreen";
+import ProfileStack from "./src/navigation/ProfileStack";
+import AddAnimalScreen from "./src/screens/AnimalRecords/AddAnimalScreen";
+import AnimalDetailScreen from "./src/screens/AnimalRecords/AnimalDetailScreen";
+import EditAnimalScreen from "./src/screens/AnimalRecords/EditAnimalScreen";
 
 const Stack = createNativeStackNavigator();
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+function AppNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = () => {
-      const authStatus = AuthService.isAuthenticated();
-      setIsAuthenticated(authStatus);
-    };
-    
-    checkAuth();
-  }, []);
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Create a placeholder component for screens that don't exist yet
+  const PlaceholderScreen = ({ route }: any) => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>
+        {route.name} Screen Coming Soon
+      </Text>
+    </View>
+  );
 
   return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style="dark" backgroundColor={colors.background} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="Main" component={BottomTabs} />
+            <Stack.Screen name="Settings" component={SettingsStack} />
+            <Stack.Screen name="AnimalRecords" component={AnimalRecordsScreen} />
+            <Stack.Screen name="AddAnimal" component={AddAnimalScreen} />
+            <Stack.Screen name="AnimalDetail" component={AnimalDetailScreen} />
+            <Stack.Screen name="EditAnimal" component={EditAnimalScreen} />
+            <Stack.Screen name="Profile" component={ProfileStack} />
+            
+            {/* Placeholder screens for side menu items */}
+            <Stack.Screen name="Feed" component={PlaceholderScreen} />
+            <Stack.Screen name="Vaccination" component={PlaceholderScreen} />
+            <Stack.Screen name="Milk" component={PlaceholderScreen} />
+          </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        )}
+      </Stack.Navigator>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-          <StatusBar style="dark" backgroundColor={colors.background} />
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {isAuthenticated ? (
-              <Stack.Screen name="Main" component={BottomTabs} />
-            ) : (
-              <Stack.Screen name="Auth" component={AuthStack} />
-            )}
-          </Stack.Navigator>
-        </View>
-      </NavigationContainer>
+      <AuthProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+        <Toast />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,19 +9,22 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Text } from '../../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import AnimalService, { Animal } from '../../services/AnimalService';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import AnimalService, { Animal, PaginationData } from '../../services/AnimalService';
 
 // Define navigation type
 type RootStackParamList = {
   Home: undefined;
   AnimalRecords: undefined;
   AddAnimal: undefined;
-  EditAnimal: { animalId: string };
+  EditAnimal: { animalId: number };
+  AnimalDetail: { animalId: number };
 };
 
 // Animal card component
@@ -55,9 +58,17 @@ const AnimalCard = ({
       
       <View style={styles.cardBody}>
         <View style={styles.animalImageContainer}>
-          <View style={styles.animalImagePlaceholder}>
-            <Ionicons name="paw-outline" size={30} color="#7367F0" />
-          </View>
+          {animal.image_path ? (
+            <Image 
+              source={{ uri: animal.image_path }} 
+              style={styles.animalImage} 
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.animalImagePlaceholder}>
+              <Ionicons name="paw-outline" size={30} color="#7367F0" />
+            </View>
+          )}
         </View>
         
         <View style={styles.detailsContainer}>
@@ -160,6 +171,38 @@ const AnimalDetailsModal = ({
   animal: Animal | null;
   onClose: () => void;
 }) => {
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [healthRecords, setHealthRecords] = useState<any[]>([]);
+  const [milkRecords, setMilkRecords] = useState<any[]>([]);
+  
+  useEffect(() => {
+    if (animal && visible) {
+      fetchAnimalDetails();
+    }
+  }, [animal, visible]);
+  
+  const fetchAnimalDetails = async () => {
+    if (!animal) return;
+    
+    setLoadingDetails(true);
+    try {
+      // Fetch health records and milk production data in parallel
+      const [healthData, milkData] = await Promise.all([
+        AnimalService.getAnimalHealthRecords(animal.id),
+        animal.animal_type === 'Cow' && animal.gender === 'Female' 
+          ? AnimalService.getMilkProductionData(animal.id) 
+          : Promise.resolve([])
+      ]);
+      
+      setHealthRecords(healthData);
+      setMilkRecords(milkData);
+    } catch (error) {
+      console.error('Error fetching animal details:', error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+  
   if (!animal) return null;
   
   return (
@@ -180,7 +223,32 @@ const AnimalDetailsModal = ({
           
           <ScrollView style={styles.modalBody}>
             <View style={styles.animalProfileImage}>
-              <Ionicons name="paw" size={64} color="#7367F0" />
+              {animal.image_path ? (
+                <Image 
+                  source={{ uri: animal.image_path }} 
+                  style={styles.detailImage} 
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="paw" size={64} color="#7367F0" />
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.badgeContainer}>
+              <View style={[styles.statusBadge, { 
+                backgroundColor: 
+                  animal.health_status === 'Healthy' ? '#34C759' : 
+                  animal.health_status === 'Sick' ? '#FF3B30' : 
+                  '#FF9500' // Under Treatment
+              }]}>
+                <Text style={styles.statusText}>{animal.health_status}</Text>
+              </View>
+              
+              <View style={styles.typeBadge}>
+                <Text style={styles.typeBadgeText}>{animal.animal_type}</Text>
+              </View>
             </View>
             
             <View style={styles.infoSection}>
@@ -188,10 +256,6 @@ const AnimalDetailsModal = ({
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Tag ID:</Text>
                 <Text style={styles.infoValue}>{animal.tag_id}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Animal Type:</Text>
-                <Text style={styles.infoValue}>{animal.animal_type}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Breed:</Text>
@@ -202,58 +266,110 @@ const AnimalDetailsModal = ({
                 <Text style={styles.infoValue}>{animal.gender}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Date of Birth:</Text>
+                <Text style={styles.infoLabel}>Born:</Text>
                 <Text style={styles.infoValue}>{animal.date_of_birth}</Text>
               </View>
-            </View>
-            
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Health & Status</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Health Status:</Text>
-                <View style={[styles.statusIndicator, 
-                  animal.health_status === 'Healthy' 
-                    ? { backgroundColor: '#34C759' } 
-                    : animal.health_status === 'Sick' 
-                      ? { backgroundColor: '#FF3B30' } 
-                      : { backgroundColor: '#FF9500' }
-                ]}>
-                  <Text style={styles.statusIndicatorText}>{animal.health_status}</Text>
+              {animal.price && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Price:</Text>
+                  <Text style={styles.infoValue}>${animal.price}</Text>
                 </View>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Shed Location:</Text>
-                <Text style={styles.infoValue}>{animal.shed_location_id}</Text>
-              </View>
+              )}
               {animal.lactation && (
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Lactation Status:</Text>
+                  <Text style={styles.infoLabel}>Lactation:</Text>
                   <Text style={styles.infoValue}>{animal.lactation}</Text>
                 </View>
               )}
             </View>
             
-            {animal.price && (
-              <View style={styles.infoSection}>
-                <Text style={styles.sectionTitle}>Financial Information</Text>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Price:</Text>
-                  <Text style={styles.infoValue}>${animal.price}</Text>
-                </View>
+            <View style={styles.divider} />
+            
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>Location Information</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Shed ID:</Text>
+                <Text style={styles.infoValue}>{animal.shed_location_id}</Text>
               </View>
+              {animal.location && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Location:</Text>
+                  <Text style={styles.infoValue}>{animal.location}</Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Health records section */}
+            {healthRecords.length > 0 && (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.infoSection}>
+                  <Text style={styles.sectionTitle}>Health Records</Text>
+                  {healthRecords.map((record, index) => (
+                    <View key={record.id} style={styles.recordCard}>
+                      <View style={styles.recordHeader}>
+                        <Text style={styles.recordDate}>{record.date}</Text>
+                        <Text style={styles.recordTitle}>{record.condition}</Text>
+                      </View>
+                      <View style={styles.recordBody}>
+                        <Text style={styles.recordLabel}>Treatment:</Text>
+                        <Text style={styles.recordValue}>{record.treatment}</Text>
+                      </View>
+                      <Text style={styles.recordNotes}>{record.notes}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
             )}
             
-            <View style={styles.actionsContainer}>
-              <TouchableOpacity style={styles.actionButtonFull}>
-                <Ionicons name="document-text-outline" size={20} color="white" />
-                <Text style={styles.actionButtonText}>View Health Records</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButtonFull}>
-                <Ionicons name="stats-chart-outline" size={20} color="white" />
-                <Text style={styles.actionButtonText}>Milk Production Data</Text>
-              </TouchableOpacity>
+            {/* Milk production section (only for female cows) */}
+            {milkRecords.length > 0 && (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.infoSection}>
+                  <Text style={styles.sectionTitle}>Milk Production</Text>
+                  {milkRecords.map((record, index) => (
+                    <View key={index} style={styles.recordCard}>
+                      <Text style={styles.recordDate}>{record.date}</Text>
+                      <View style={styles.milkDataContainer}>
+                        <View style={styles.milkDataItem}>
+                          <Text style={styles.milkDataLabel}>Morning</Text>
+                          <Text style={styles.milkDataValue}>{record.morning} L</Text>
+                        </View>
+                        <View style={styles.milkDataItem}>
+                          <Text style={styles.milkDataLabel}>Evening</Text>
+                          <Text style={styles.milkDataValue}>{record.evening} L</Text>
+                        </View>
+                        <View style={styles.milkDataItem}>
+                          <Text style={styles.milkDataLabel}>Total</Text>
+                          <Text style={[styles.milkDataValue, styles.milkTotal]}>{record.total} L</Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+            
+            {/* Record creation/update info */}
+            <View style={styles.infoSection}>
+              <Text style={styles.timestampText}>
+                Created: {new Date(animal.created_at).toLocaleDateString()}
+              </Text>
+              <Text style={styles.timestampText}>
+                Last Updated: {new Date(animal.updated_at).toLocaleDateString()}
+              </Text>
             </View>
           </ScrollView>
+          
+          <View style={styles.modalFooter}>
+            <TouchableOpacity 
+              style={styles.footerButton}
+              onPress={onClose}
+            >
+              <Text style={styles.footerButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -263,106 +379,109 @@ const AnimalDetailsModal = ({
 // Main component
 export default function AnimalRecordsScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [filteredAnimals, setFilteredAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
-  const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [activeFilter, setActiveFilter] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    count: 0,
+    per_page: 10,
+    current_page: 1,
+    total_pages: 1
+  });
   
-  // Fetch all animals on component mount
-  useEffect(() => {
-    fetchAnimals();
-  }, []);
+  // Fetch animals from API when the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchAnimals();
+      
+      return () => {
+        // Clean up if needed
+      };
+    }, [])
+  );
   
-  // Apply search filter when search query changes
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredAnimals(animals);
+  // Fetch animals from API
+  const fetchAnimals = async (page: number = 1, filter: string = activeFilter, query: string = searchQuery) => {
+    if (page === 1) {
+      setLoading(true);
     } else {
-      // Use search functionality from animal service
-      handleSearch(searchQuery);
+      setLoadingMore(true);
     }
-  }, [searchQuery, animals]);
-  
-  // Fetch animals from the API
-  const fetchAnimals = async () => {
-    setIsLoading(true);
+    
     try {
-      const data = await AnimalService.getAnimals();
-      setAnimals(data);
-      setFilteredAnimals(data);
+      const response = await AnimalService.getAnimals(page, query, filter);
+      
+      if (page === 1) {
+        setAnimals(response.animals);
+        setFilteredAnimals(response.animals);
+      } else {
+        setAnimals(prevAnimals => [...prevAnimals, ...response.animals]);
+        setFilteredAnimals(prevAnimals => [...prevAnimals, ...response.animals]);
+      }
+      
+      setPagination(response.pagination);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch animals. Please try again later.');
       console.error('Error fetching animals:', error);
+      Alert.alert('Error', 'Failed to load animals. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
   };
   
-  // Handle filtering by animal type
-  const handleFilter = async (filter: string) => {
+  // Load more animals when reaching the end of the list
+  const handleLoadMore = () => {
+    if (
+      !loadingMore && 
+      pagination.current_page < pagination.total_pages
+    ) {
+      fetchAnimals(pagination.current_page + 1);
+    }
+  };
+  
+  // Filter animals by type
+  const handleFilter = (filter: string) => {
     setActiveFilter(filter);
-    setIsLoading(true);
-    try {
-      if (filter === '') {
-        // If no filter selected, show all animals
-        const data = await AnimalService.getAnimals();
-        setFilteredAnimals(data);
-      } else {
-        // Otherwise, filter animals by type
-        const data = await AnimalService.getAnimalsByType(filter);
-        setFilteredAnimals(data);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to filter animals. Please try again later.');
-      console.error('Error filtering animals:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    fetchAnimals(1, filter, searchQuery);
   };
   
-  // Handle search functionality
-  const handleSearch = async (query: string) => {
-    if (query.trim() === '') {
-      setFilteredAnimals(animals);
-      return;
-    }
+  // Search animals
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
     
-    setIsLoading(true);
-    try {
-      const results = await AnimalService.searchAnimals(query);
-      setFilteredAnimals(results);
-    } catch (error) {
-      console.error('Error searching animals:', error);
-      // If search fails, do a local filter as fallback
-      const filtered = animals.filter(animal => 
-        animal.name.toLowerCase().includes(query.toLowerCase()) || 
-        animal.tag_id.toLowerCase().includes(query.toLowerCase()) ||
-        animal.breed.toLowerCase().includes(query.toLowerCase())
-      );
-      setFilteredAnimals(filtered);
-    } finally {
-      setIsLoading(false);
+    if (query.trim() === '') {
+      fetchAnimals(1, activeFilter, '');
+    } else {
+      // Debounce search - only search after typing stops for 500ms
+      const timeoutId = setTimeout(() => {
+        fetchAnimals(1, activeFilter, query);
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
   };
   
-  // Handle refresh
+  // Refresh animals list (pull-to-refresh)
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchAnimals();
+    fetchAnimals(1, activeFilter, searchQuery);
   };
   
   // View animal details
   const viewAnimalDetails = (animal: Animal) => {
-    setSelectedAnimal(animal);
-    setIsDetailsModalVisible(true);
+    navigation.navigate('AnimalDetail' as never, { animalId: animal.id } as never);
   };
   
-  // Edit animal
+  // Navigate to edit animal screen
   const editAnimal = (animal: Animal) => {
     navigation.navigate('EditAnimal', { animalId: animal.id });
   };
@@ -370,7 +489,7 @@ export default function AnimalRecordsScreen() {
   // Delete animal
   const deleteAnimal = (animal: Animal) => {
     Alert.alert(
-      'Confirm Deletion',
+      'Confirm Delete',
       `Are you sure you want to delete ${animal.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -378,19 +497,17 @@ export default function AnimalRecordsScreen() {
           text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
-            setIsLoading(true);
             try {
+              setLoading(true);
               await AnimalService.deleteAnimal(animal.id);
-              // Remove the deleted animal from the list
-              const updatedAnimals = animals.filter(a => a.id !== animal.id);
-              setAnimals(updatedAnimals);
-              setFilteredAnimals(updatedAnimals);
-              Alert.alert('Success', `${animal.name} has been deleted.`);
+              fetchAnimals(1, activeFilter, searchQuery);
+              
+              Alert.alert('Success', 'Animal deleted successfully');
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete animal. Please try again later.');
               console.error('Error deleting animal:', error);
+              Alert.alert('Error', 'Failed to delete animal. Please try again.');
             } finally {
-              setIsLoading(false);
+              setLoading(false);
             }
           }
         }
@@ -398,186 +515,209 @@ export default function AnimalRecordsScreen() {
     );
   };
   
-  // Add new animal
+  // Navigate to add animal screen
   const addNewAnimal = () => {
     navigation.navigate('AddAnimal');
   };
   
+  // Render loading indicator
+  if (loading && !refreshing && animals.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#7367F0" />
+        <Text style={styles.loadingText}>Loading animals...</Text>
+      </View>
+    );
+  }
+  
+  // Render footer for FlatList (loading indicator for pagination)
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#7367F0" />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()} 
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#3F4E6C" />
-            </TouchableOpacity>
-            <Text style={styles.screenTitle}>Animal Records</Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={addNewAnimal}
-          >
-            <Ionicons name="add-outline" size={24} color="white" />
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#3F4E6C" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Animal Records</Text>
+          <Text style={styles.headerSubtitle}>
+            {pagination.total} {pagination.total === 1 ? 'Animal' : 'Animals'}
+          </Text>
         </View>
-        
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#777" style={styles.searchIcon} />
+        <TouchableOpacity style={styles.addButton} onPress={addNewAnimal}>
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+      
+      {/* Search bar */}
+      <View style={styles.searchBarContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#7367F0" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name, tag ID or breed..."
+            placeholder="Search animals..."
             value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
+            onChangeText={handleSearch}
+            returnKeyType="search"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity 
-              style={styles.clearButton} 
-              onPress={() => setSearchQuery('')}
+              onPress={() => handleSearch('')}
+              style={styles.clearSearch}
             >
-              <Ionicons name="close-circle" size={20} color="#777" />
+              <Ionicons name="close-circle" size={20} color="#999" />
             </TouchableOpacity>
           )}
         </View>
-        
-        <FilterSection onFilter={handleFilter} activeFilter={activeFilter} />
-        
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading animals...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredAnimals}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <AnimalCard 
-                animal={item} 
-                onPress={() => viewAnimalDetails(item)}
-                onEdit={() => editAnimal(item)}
-                onDelete={() => deleteAnimal(item)}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={["#7367F0"]}
-              />
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="paw" size={64} color="#CCCCCC" />
-                <Text style={styles.emptyText}>No animals found</Text>
-                <Text style={styles.emptySubtext}>
-                  {searchQuery || activeFilter 
-                    ? "Try changing your search or filter"
-                    : "Add animals to see them here"}
-                </Text>
-              </View>
-            }
-          />
-        )}
       </View>
       
+      {/* Filter section */}
+      <FilterSection onFilter={handleFilter} activeFilter={activeFilter} />
+      
+      {/* Animal list */}
+      <FlatList
+        data={filteredAnimals}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <AnimalCard
+            animal={item}
+            onPress={() => viewAnimalDetails(item)}
+            onEdit={() => editAnimal(item)}
+            onDelete={() => deleteAnimal(item)}
+          />
+        )}
+        contentContainerStyle={styles.animalList}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#7367F0']}
+            tintColor="#7367F0"
+          />
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyList}>
+              <Ionicons name="alert-circle-outline" size={48} color="#999" />
+              <Text style={styles.emptyText}>
+                {searchQuery 
+                  ? 'No animals found for your search' 
+                  : activeFilter 
+                    ? `No ${activeFilter.toLowerCase()} animals found` 
+                    : 'No animals found. Add your first animal!'}
+              </Text>
+              <TouchableOpacity 
+                style={styles.addEmptyButton}
+                onPress={addNewAnimal}
+              >
+                <Text style={styles.addEmptyText}>Add Animal</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
+      />
+      
+      {/* Animal Details Modal */}
       <AnimalDetailsModal
-        visible={isDetailsModalVisible}
+        visible={modalVisible}
         animal={selectedAnimal}
-        onClose={() => setIsDetailsModalVisible(false)}
+        onClose={() => setModalVisible(false)}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FB',
-  },
   container: {
     flex: 1,
     backgroundColor: '#F8F9FB',
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#EAEAEA',
+    elevation: 2,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  backButton: {
-    marginRight: 16,
-  },
-  screenTitle: {
+  headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#3F4E6C',
+    marginLeft: 16,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#7A869A',
+    marginTop: 2,
   },
   addButton: {
+    backgroundColor: '#7367F0',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#7367F0',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: "#7367F0",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    margin: 16,
-    paddingHorizontal: 16,
-    height: 48,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
     elevation: 2,
   },
-  searchIcon: {
-    marginRight: 10,
+  searchBarContainer: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E9EDF5',
   },
   searchInput: {
     flex: 1,
+    marginLeft: 8,
     fontSize: 16,
-    height: '100%',
-    color: '#333',
+    color: '#3F4E6C',
+    height: 40,
   },
-  clearButton: {
-    padding: 5,
+  clearSearch: {
+    padding: 4,
   },
   filterWrapper: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EAEAEA',
   },
   filterSectionLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
+    color: '#3F4E6C',
+    marginLeft: 16,
     marginBottom: 8,
   },
   filterScroll: {
@@ -586,11 +726,11 @@ const styles = StyleSheet.create({
   filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginHorizontal: 4,
     borderRadius: 20,
-    backgroundColor: 'white',
+    backgroundColor: '#F5F7FA',
+    marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E9EDF5',
   },
   filterButtonActive: {
     backgroundColor: '#7367F0',
@@ -598,39 +738,31 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 14,
-    color: '#666',
+    color: '#3F4E6C',
     fontWeight: '500',
   },
   filterTextActive: {
-    color: 'white',
+    color: '#FFFFFF',
   },
-  listContent: {
-    paddingHorizontal: 16,
+  animalList: {
+    padding: 16,
     paddingBottom: 80,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-  },
   animalCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
   nameContainer: {
@@ -639,95 +771,130 @@ const styles = StyleSheet.create({
   animalName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
+    color: '#3F4E6C',
   },
   tagId: {
     fontSize: 14,
-    color: '#666',
+    color: '#7A869A',
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
+    borderRadius: 12,
+    backgroundColor: '#34C759',
   },
   statusText: {
     fontSize: 12,
-    color: 'white',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   cardBody: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingTop: 12,
     marginBottom: 12,
   },
   animalImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
     marginRight: 16,
   },
+  animalImage: {
+    width: '100%',
+    height: '100%',
+  },
   animalImagePlaceholder: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#F0EFFF',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F5F7FA',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9EDF5',
   },
   detailsContainer: {
     flex: 1,
   },
   detailRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   detailLabel: {
     width: 70,
     fontSize: 14,
-    color: '#777',
+    color: '#7A869A',
   },
   detailValue: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: '#3F4E6C',
     fontWeight: '500',
   },
   cardActions: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#EAEAEA',
     paddingTop: 12,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
+    marginLeft: 16,
+    padding: 4,
   },
   actionText: {
+    marginLeft: 4,
     fontSize: 14,
-    color: '#7367F0',
-    marginLeft: 6,
+    color: '#3F4E6C',
   },
-  emptyContainer: {
+  loadingContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    marginTop: 20,
+    backgroundColor: '#F8F9FB',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#3F4E6C',
+  },
+  emptyList: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 8,
+    fontSize: 16,
+    color: '#7A869A',
     textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
   },
-  // Modal styles
+  addEmptyButton: {
+    backgroundColor: '#7367F0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  addEmptyText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  footerText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#7A869A',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -735,11 +902,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '80%',
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
+    width: '90%',
+    maxHeight: '85%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -747,7 +918,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#EAEAEA',
   },
   modalTitle: {
     fontSize: 20,
@@ -761,68 +932,161 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   animalProfileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F0EFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
     marginBottom: 16,
   },
+  detailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F5F7FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9EDF5',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  typeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#7367F0',
+    marginLeft: 8,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   infoSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#3F4E6C',
     marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    paddingBottom: 8,
   },
   infoRow: {
     flexDirection: 'row',
     marginBottom: 8,
   },
   infoLabel: {
-    width: 120,
-    fontSize: 14,
-    color: '#777',
+    width: 100,
+    fontSize: 15,
+    color: '#7A869A',
   },
   infoValue: {
     flex: 1,
-    fontSize: 14,
-    color: '#333',
+    fontSize: 15,
+    color: '#3F4E6C',
     fontWeight: '500',
   },
-  statusIndicator: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 12,
+  divider: {
+    height: 1,
+    backgroundColor: '#EAEAEA',
+    marginVertical: 16,
   },
-  statusIndicatorText: {
-    fontSize: 12,
-    color: 'white',
-    fontWeight: '500',
+  recordCard: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7367F0',
   },
-  actionsContainer: {
-    marginTop: 16,
-  },
-  actionButtonFull: {
+  recordHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  recordDate: {
+    fontSize: 14,
+    color: '#7A869A',
+  },
+  recordTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3F4E6C',
+  },
+  recordBody: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  recordLabel: {
+    width: 80,
+    fontSize: 14,
+    color: '#7A869A',
+  },
+  recordValue: {
+    flex: 1,
+    fontSize: 14,
+    color: '#3F4E6C',
+  },
+  recordNotes: {
+    fontSize: 14,
+    color: '#3F4E6C',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  milkDataContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  milkDataItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  milkDataLabel: {
+    fontSize: 12,
+    color: '#7A869A',
+    marginBottom: 4,
+  },
+  milkDataValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3F4E6C',
+  },
+  milkTotal: {
+    color: '#7367F0',
+  },
+  timestampText: {
+    fontSize: 12,
+    color: '#7A869A',
+    marginTop: 4,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EAEAEA',
+    alignItems: 'center',
+  },
+  footerButton: {
+    backgroundColor: '#7367F0',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7367F0',
-    borderRadius: 30,
-    padding: 12,
-    marginBottom: 12,
+    width: '80%',
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: 'white',
+  footerButtonText: {
+    color: '#FFFFFF',
     fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 16,
+  },
+  backButton: {
+    padding: 4,
   },
 }); 

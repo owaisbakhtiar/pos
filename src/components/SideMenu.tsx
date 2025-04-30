@@ -7,11 +7,13 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './common';
 import { colors } from '../theme';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 
 interface SideMenuProps {
   isVisible: boolean;
@@ -23,6 +25,7 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
   const [slideAnim] = React.useState(new Animated.Value(-300));
   const [fadeAnim] = React.useState(new Animated.Value(0));
   const navigation = useNavigation();
+  const { logout, user } = useAuth();
 
   React.useEffect(() => {
     if (isVisible) {
@@ -54,6 +57,19 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
     }
   }, [isVisible]);
 
+  // Use actual user name from auth context if available
+  const displayName = user?.name || userName;
+  
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   const menuItems = [
     { title: 'Dashboard', icon: 'home-outline', screen: 'Home' },
     { title: 'Farm Management', icon: 'business-outline', screen: 'Home' },
@@ -64,13 +80,37 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
     { title: 'Milk Records', icon: 'water-outline', screen: 'Milk' },
     { title: 'Financial Records', icon: 'cash-outline', screen: 'Home' },
     { title: 'Reports', icon: 'bar-chart-outline', screen: 'Home' },
-    { title: 'Settings', icon: 'settings-outline', screen: 'Home' },
+    { title: 'Profile', icon: 'person-outline', screen: 'Profile' },
+    { title: 'Settings', icon: 'settings-outline', screen: 'Settings' },
     { title: 'Help & Support', icon: 'help-circle-outline', screen: 'Home' },
   ];
 
   const handleMenuItemPress = (screenName: string) => {
     onClose();
     navigation.navigate(screenName as never);
+  };
+
+  const handleLogout = () => {
+    onClose();
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+              // Navigation will be handled by AuthContext
+            } catch (error) {
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (!isVisible) return null;
@@ -101,12 +141,12 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
             <View style={styles.userInfo}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
-                  {userName.split(' ').map(name => name[0]).join('')}
+                  {getInitials(displayName)}
                 </Text>
               </View>
               <View style={styles.userTextContainer}>
-                <Text style={styles.userName}>{userName}</Text>
-                <Text style={styles.userRole}>Farm Owner</Text>
+                <Text style={styles.userName}>{displayName}</Text>
+                <Text style={styles.userRole}>{user?.roles?.[0]?.name || 'User'}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -128,8 +168,8 @@ export default function SideMenu({ isVisible, onClose, userName }: SideMenuProps
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={22} color="#3F4E6C" />
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
               <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>
           </View>
@@ -229,7 +269,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     marginLeft: 16,
-    color: '#3F4E6C',
+    color: '#FF3B30',
     fontWeight: '500',
   },
 }); 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,14 +8,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button } from '../../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import AuthService, { SignupRequest } from '../../services/AuthService';
+import { SignupRequest } from '../../services/AuthService';
+import api from '../../services/api';
+import Toast from 'react-native-toast-message';
+import axios from 'axios';
 
 export default function SignupScreen() {
   const navigation = useNavigation();
@@ -77,29 +79,102 @@ export default function SignupScreen() {
     }
   };
   
+  const formatValidationErrors = (errorData: any) => {
+    const formattedErrors: {[key: string]: string} = {};
+    if (errorData && errorData.errors) {
+      Object.keys(errorData.errors).forEach(field => {
+        formattedErrors[field] = errorData.errors[field][0];
+      });
+    }
+    return formattedErrors;
+  };
+  
   const handleSignup = async () => {
-    if (!validateForm()) return;
+    // First validate on the client side
+    if (!validateForm()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please check the form for errors',
+        position: 'bottom',
+      });
+      return;
+    }
     
     setIsLoading(true);
     try {
-      const userData = await AuthService.signup(formData);
-      console.log('Signup successful:', userData);
-      Alert.alert(
-        'Signup Successful',
-        'Your account has been created. You can now log in.',
-        [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.navigate('Login' as never) 
-          }
-        ]
-      );
+      console.log('Attempting to register user:', formData.email);
+      // Call the API to register the user
+      const response = await api.post('/v1/auth/register', formData);
+      
+      console.log('Registration successful:', response.data);
+      
+      // Show success toast
+      Toast.show({
+        type: 'success',
+        text1: 'Registration Successful',
+        text2: 'User and farm registered successfully',
+        position: 'bottom',
+        visibilityTime: 4000,
+      });
+      
+      // Navigate to Login screen after a delay
+      setTimeout(() => {
+        navigation.navigate('Login' as never);
+      }, 1500);
+      
     } catch (error) {
-      Alert.alert('Signup Failed', error instanceof Error ? error.message : 'An unexpected error occurred');
+      console.log('Registration error:', error);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        // Handle 422 validation errors
+        if (error.response.status === 422) {
+          const serverErrors = formatValidationErrors(error.response.data);
+          setErrors(serverErrors);
+          
+          // Show toast with first error message
+          const firstErrorMessage = Object.values(serverErrors)[0];
+          Toast.show({
+            type: 'error',
+            text1: 'Validation Error',
+            text2: firstErrorMessage,
+            position: 'bottom',
+          });
+        } else {
+          // Handle other errors (500, etc.)
+          Toast.show({
+            type: 'error',
+            text1: 'Registration Failed',
+            text2: error.response.data?.message || 'An unexpected error occurred',
+            position: 'bottom',
+          });
+        }
+      } else {
+        // Handle network or other errors
+        Toast.show({
+          type: 'error',
+          text1: 'Registration Failed',
+          text2: 'Network error or server unavailable',
+          position: 'bottom',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
+  
+  // Display toast message for client-side validation errors
+  useEffect(() => {
+    const errorMessages = Object.values(errors);
+    if (errorMessages.length > 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: errorMessages[0],
+        position: 'bottom',
+      });
+    }
+  }, [errors]);
   
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -112,11 +187,11 @@ export default function SignupScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoContainer}>
-            {/* <Image 
-              source={require('../../../assets/logo.png')} 
+            <Image 
+              source={require('../../../assets/icon.png')} 
               style={styles.logo}
               resizeMode="contain"
-            /> */}
+            />
           </View>
           
           <Text style={styles.title}>Create Account</Text>

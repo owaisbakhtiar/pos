@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,15 +10,18 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Text as RNText,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button } from '../../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import AuthService, { LoginRequest } from '../../services/AuthService';
+import { LoginRequest } from '../../types/auth';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const { login, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<LoginRequest>({
     email: '',
@@ -26,6 +29,17 @@ export default function LoginScreen() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [loginError, setLoginError] = useState<string | null>(null);
+  
+  // Prevent automatic navigation if there was a login error
+  useEffect(() => {
+    // Only allow navigation to happen if we're not showing an error
+    // This prevents the app from navigating away when there's an error
+    if (isAuthenticated && !loginError && !isLoading) {
+      // Navigation will happen automatically via App.tsx
+      console.log("LoginScreen: Auth state changed, ready for navigation");
+    }
+  }, [isAuthenticated, loginError, isLoading]);
   
   const validateForm = (): boolean => {
     const newErrors: {[key: string]: string} = {};
@@ -48,6 +62,11 @@ export default function LoginScreen() {
   };
   
   const handleInputChange = (field: keyof LoginRequest, value: string) => {
+    // Clear login error when user starts typing
+    if (loginError) {
+      setLoginError(null);
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when typing
     if (errors[field]) {
@@ -62,14 +81,59 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validateForm()) return;
     
+    setLoginError(null);
     setIsLoading(true);
+    
     try {
-      const userData = await AuthService.login(formData);
-      console.log('Login successful:', userData);
-      // In a real app, you'd save the token and navigate to the home screen
-      navigation.navigate('Home' as never);
+      console.log("LoginScreen: Attempting login with", formData.email);
+      await login(formData.email, formData.password);
+      console.log("LoginScreen: Login successful");
+      // No need to navigate - AuthContext will handle the state change
+      // that will trigger navigation in App.tsx
     } catch (error) {
-      Alert.alert('Login Failed', error instanceof Error ? error.message : 'An unexpected error occurred');
+      console.log("LoginScreen: Login failed with error:", error);
+      // Extract and display the error message
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred';
+        
+      // Check if it's an invalid credentials error from the API
+      if (errorMessage.includes('Invalid login details') || 
+          errorMessage.toLowerCase().includes('invalid') ||
+          errorMessage.toLowerCase().includes('incorrect')) {
+        setLoginError(errorMessage);
+        
+        // Show Alert in addition to inline error
+        setTimeout(() => {
+          Alert.alert(
+            "Login Failed",
+            errorMessage,
+            [{ text: "OK" }]
+          );
+        }, 100);
+      } else if (errorMessage.toLowerCase().includes('network')) {
+        setLoginError('Network error. Please check your internet connection and try again.');
+        
+        // Show Alert for network errors
+        setTimeout(() => {
+          Alert.alert(
+            "Network Error",
+            'Network error. Please check your internet connection and try again.',
+            [{ text: "OK" }]
+          );
+        }, 100);
+      } else {
+        setLoginError(errorMessage);
+        
+        // Show Alert for other errors
+        setTimeout(() => {
+          Alert.alert(
+            "Login Error",
+            errorMessage,
+            [{ text: "OK" }]
+          );
+        }, 100);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +159,14 @@ export default function LoginScreen() {
           
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Log in to continue using FarmApp</Text>
+          
+          {/* Display login error if any */}
+          {loginError && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color="#FF3B30" style={styles.errorIcon} />
+              <RNText style={styles.loginErrorText}>{loginError}</RNText>
+            </View>
+          )}
           
           <View style={styles.form}>
             {/* Email Input */}
@@ -283,5 +355,21 @@ const styles = StyleSheet.create({
     color: '#7367F0',
     fontWeight: '600',
     marginLeft: 5,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEEEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  errorIcon: {
+    marginRight: 8,
+  },
+  loginErrorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    flex: 1,
   },
 }); 

@@ -1,17 +1,20 @@
 // Animal interfaces
 export interface Animal {
-  id: string;
-  name: string;
+  id: number;
   tag_id: string;
+  shed_location_id: number;
+  name: string;
   date_of_birth: string;
   breed: string;
   animal_type: string;
   gender: string;
   health_status: string;
+  location: string | null;
   price?: string;
   lactation?: string;
-  shed_location_id: string;
-  image_path?: string;
+  image_path?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AnimalCreateRequest {
@@ -42,196 +45,175 @@ export interface AnimalUpdateRequest {
   image_path?: string;
 }
 
-// Mock data
-const mockAnimals: Animal[] = [
-  {
-    id: '1',
-    name: 'Bella',
-    tag_id: 'COW001',
-    date_of_birth: '2019-05-15',
-    breed: 'Holstein',
-    animal_type: 'Cow',
-    gender: 'Female',
-    health_status: 'Healthy',
-    lactation: 'Active',
-    shed_location_id: 'A1',
-  },
-  {
-    id: '2',
-    name: 'Duke',
-    tag_id: 'BULL002',
-    date_of_birth: '2018-03-20',
-    breed: 'Angus',
-    animal_type: 'Bull',
-    gender: 'Male',
-    health_status: 'Healthy',
-    shed_location_id: 'B2',
-  },
-  {
-    id: '3',
-    name: 'Daisy',
-    tag_id: 'COW003',
-    date_of_birth: '2020-01-10',
-    breed: 'Jersey',
-    animal_type: 'Cow',
-    gender: 'Female',
-    health_status: 'Under Treatment',
-    lactation: 'Active',
-    shed_location_id: 'A3',
-  },
-  {
-    id: '4',
-    name: 'Luna',
-    tag_id: 'HEIF004',
-    date_of_birth: '2021-07-12',
-    breed: 'Holstein',
-    animal_type: 'Heifer',
-    gender: 'Female',
-    health_status: 'Healthy',
-    shed_location_id: 'C1',
-  },
-  {
-    id: '5',
-    name: 'Max',
-    tag_id: 'CALF005',
-    date_of_birth: '2022-11-30',
-    breed: 'Angus',
-    animal_type: 'Calf',
-    gender: 'Male',
-    health_status: 'Sick',
-    shed_location_id: 'D2',
-  },
-  {
-    id: '6',
-    name: 'Rosie',
-    tag_id: 'COW006',
-    date_of_birth: '2019-08-25',
-    breed: 'Holstein',
-    animal_type: 'Cow',
-    gender: 'Female',
-    health_status: 'Healthy',
-    lactation: 'Dry',
-    shed_location_id: 'A2',
-    price: '1200'
-  },
-  {
-    id: '7',
-    name: 'Charlie',
-    tag_id: 'BULL007',
-    date_of_birth: '2018-06-14',
-    breed: 'Brahman',
-    animal_type: 'Bull',
-    gender: 'Male',
-    health_status: 'Healthy',
-    shed_location_id: 'B1',
-    price: '1500'
-  },
-];
+// Pagination interface from API
+export interface PaginationData {
+  total: number;
+  count: number;
+  per_page: number;
+  current_page: number;
+  total_pages: number;
+}
 
-// Service class for animal-related mock data
+// API Response interface
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: {
+    data: T[];
+    pagination: PaginationData;
+  };
+}
+
+// Single Item API Response interface
+export interface SingleApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+import api from './api';
+
+// Service class for animal-related API calls
 class AnimalService {
-  // Get all animals
-  async getAnimals(): Promise<Animal[]> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return [...mockAnimals];
+  // Base API endpoint for livestock animals
+  private baseUrl = '/v1/livestock/animals';
+
+  // Get all animals with optional search and filters
+  async getAnimals(
+    page: number = 1,
+    search: string = '',
+    animalType: string = '',
+    healthStatus: string = '',
+    gender: string = ''
+  ): Promise<{ animals: Animal[], pagination: PaginationData }> {
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      
+      if (search) params.append('search', search);
+      if (animalType) params.append('animal_type', animalType);
+      if (healthStatus) params.append('health_status', healthStatus);
+      if (gender) params.append('gender', gender);
+      
+      const response = await api.get<ApiResponse<Animal>>(`${this.baseUrl}?${params.toString()}`);
+      
+      return {
+        animals: response.data.data.data,
+        pagination: response.data.data.pagination
+      };
+    } catch (error) {
+      console.error('Error fetching animals:', error);
+      throw error;
+    }
   }
 
   // Get animal by ID
-  async getAnimalById(id: string): Promise<Animal> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const animal = mockAnimals.find(a => a.id === id);
-    if (!animal) {
-      throw new Error(`Animal with ID ${id} not found`);
+  async getAnimalById(id: number): Promise<Animal> {
+    try {
+      const response = await api.get<SingleApiResponse<Animal>>(`${this.baseUrl}/${id}`);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error fetching animal with ID ${id}:`, error);
+      throw error;
     }
-    return {...animal};
   }
 
   // Create new animal
   async createAnimal(animalData: AnimalCreateRequest): Promise<Animal> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const newAnimal: Animal = {
-      id: `${mockAnimals.length + 1}`,
-      ...animalData
-    };
-    mockAnimals.push(newAnimal);
-    return {...newAnimal};
+    try {
+      const response = await api.post<SingleApiResponse<Animal>>(this.baseUrl, animalData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error creating animal:', error);
+      throw error;
+    }
   }
 
   // Update animal
-  async updateAnimal(id: string, animalData: AnimalUpdateRequest): Promise<Animal> {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const index = mockAnimals.findIndex(a => a.id === id);
-    if (index === -1) {
-      throw new Error(`Animal with ID ${id} not found`);
+  async updateAnimal(id: number, animalData: AnimalUpdateRequest): Promise<Animal> {
+    try {
+      const response = await api.put<SingleApiResponse<Animal>>(`${this.baseUrl}/${id}`, animalData);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error updating animal with ID ${id}:`, error);
+      throw error;
     }
-    
-    const updatedAnimal = {
-      ...mockAnimals[index],
-      ...animalData
-    };
-    
-    mockAnimals[index] = updatedAnimal;
-    return {...updatedAnimal};
   }
 
   // Delete animal
-  async deleteAnimal(id: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const index = mockAnimals.findIndex(a => a.id === id);
-    if (index !== -1) {
-      mockAnimals.splice(index, 1);
+  async deleteAnimal(id: number): Promise<void> {
+    try {
+      await api.delete(`${this.baseUrl}/${id}`);
+    } catch (error) {
+      console.error(`Error deleting animal with ID ${id}:`, error);
+      throw error;
     }
   }
 
   // Filter animals by type
   async getAnimalsByType(type: string): Promise<Animal[]> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockAnimals.filter(animal => animal.animal_type === type);
+    try {
+      const { animals } = await this.getAnimals(1, '', type);
+      return animals;
+    } catch (error) {
+      console.error(`Error fetching animals by type ${type}:`, error);
+      throw error;
+    }
   }
 
-  // Search animals by query (name, tag_id, or breed)
+  // Search animals by query
   async searchAnimals(query: string): Promise<Animal[]> {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const lowercaseQuery = query.toLowerCase();
-    return mockAnimals.filter(animal => 
-      animal.name.toLowerCase().includes(lowercaseQuery) || 
-      animal.tag_id.toLowerCase().includes(lowercaseQuery) ||
-      animal.breed.toLowerCase().includes(lowercaseQuery)
-    );
+    try {
+      const { animals } = await this.getAnimals(1, query);
+      return animals;
+    } catch (error) {
+      console.error(`Error searching animals with query "${query}":`, error);
+      throw error;
+    }
   }
 
-  // Get health records for an animal
-  async getAnimalHealthRecords(animalId: string): Promise<any[]> {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    // Mock health records
-    return [
-      {
-        id: '1',
-        date: '2023-01-15',
-        condition: 'Routine Checkup',
-        treatment: 'None',
-        notes: 'Animal in good health'
-      },
-      {
-        id: '2',
-        date: '2023-03-20',
-        condition: 'Vaccination',
-        treatment: 'FMD Vaccine',
-        notes: 'Regular vaccination program'
-      }
-    ];
+  // Get health records for an animal - this would be a separate API endpoint in the real app
+  async getAnimalHealthRecords(animalId: number): Promise<any[]> {
+    try {
+      // This would call a real API endpoint for health records
+      // For now, returning mock data
+      return [
+        {
+          id: 1,
+          date: '2023-01-15',
+          condition: 'Routine Checkup',
+          treatment: 'None',
+          notes: 'Animal in good health'
+        },
+        {
+          id: 2,
+          date: '2023-03-20',
+          condition: 'Vaccination',
+          treatment: 'FMD Vaccine',
+          notes: 'Regular vaccination program'
+        }
+      ];
+    } catch (error) {
+      console.error(`Error fetching health records for animal ID ${animalId}:`, error);
+      throw error;
+    }
   }
 
-  // Get milk production data for an animal
-  async getMilkProductionData(animalId: string): Promise<any[]> {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    // Mock milk production data
-    return [
-      { date: '2023-04-01', morning: 12.5, evening: 10.2, total: 22.7 },
-      { date: '2023-04-02', morning: 13.1, evening: 11.0, total: 24.1 },
-      { date: '2023-04-03', morning: 12.8, evening: 10.5, total: 23.3 },
-    ];
+  // Get milk production data for an animal - this would be a separate API endpoint in the real app
+  async getMilkProductionData(animalId: number): Promise<any[]> {
+    try {
+      // This would call a real API endpoint for milk production data
+      // For now, returning mock data
+      return [
+        { date: '2023-04-01', morning: 12.5, evening: 10.2, total: 22.7 },
+        { date: '2023-04-02', morning: 13.1, evening: 11.0, total: 24.1 },
+        { date: '2023-04-03', morning: 12.8, evening: 10.5, total: 23.3 },
+      ];
+    } catch (error) {
+      console.error(`Error fetching milk production data for animal ID ${animalId}:`, error);
+      throw error;
+    }
   }
 }
 

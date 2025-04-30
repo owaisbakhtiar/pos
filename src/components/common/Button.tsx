@@ -57,18 +57,21 @@ export const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={[styles.text, getTextStyle(), textStyle]}>{title}</Text>
+      <Text style={[styles.text, getTextStyle(), textStyle]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.7}>
+        {title}
+      </Text>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    height: 48,
+    minHeight: 48,
   },
   primaryButton: {
     backgroundColor: '#7367F0',
@@ -90,7 +93,8 @@ const styles = StyleSheet.create({
   text: {
     ...typography.body,
     fontWeight: "600",
-    fontSize: 16,
+    fontSize: 15,
+    textAlign: 'center',
   },
   primaryText: {
     color: 'white',
