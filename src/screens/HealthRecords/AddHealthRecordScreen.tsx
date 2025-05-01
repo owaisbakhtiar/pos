@@ -115,19 +115,34 @@ export default function AddHealthRecordScreen() {
   const fetchVeterinarians = async () => {
     setLoadingVets(true);
     try {
+      console.log('Fetching veterinarians...');
       const response = await HealthRecordService.getVeterinarians(1, '');
-      setVeterinarians(response.vets);
+      console.log('Veterinarians response:', JSON.stringify(response));
       
-      // Set first vet as default if available
-      if (response.vets.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          veterinarian_id: response.vets[0].id
-        }));
+      if (response && response.vets) {
+        // Log individual vet objects for debugging
+        response.vets.forEach((vet, index) => {
+          console.log(`Vet ${index}:`, JSON.stringify(vet));
+          console.log(`Vet ${index} name:`, vet.name);
+        });
+        
+        setVeterinarians(response.vets);
+        
+        // Set first vet as default if available
+        if (response.vets.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            veterinarian_id: response.vets[0].id
+          }));
+        }
+      } else {
+        console.error('Invalid veterinarians response format:', response);
+        setVeterinarians([]);
       }
     } catch (error) {
       console.error('Error fetching veterinarians:', error);
       Alert.alert('Error', 'Failed to load veterinarians. Please try again.');
+      setVeterinarians([]);
     } finally {
       setLoadingVets(false);
     }
@@ -443,21 +458,21 @@ export default function AddHealthRecordScreen() {
           <View style={styles.formGroup}>
             <View style={styles.labelContainer}>
               <Text style={styles.label}>Veterinarian</Text>
-              {veterinarians.length === 0 && (
-                <TouchableOpacity 
-                  onPress={() => navigation.navigate('ManageVeterinarians')}
-                  style={styles.addNewButton}
-                >
-                  <Text style={styles.addNewButtonText}>Add New</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity 
+                onPress={() => {
+                  console.log('Navigating to ManageVeterinarians');
+                  navigation.navigate('ManageVeterinarians');
+                }}
+                style={styles.addNewButton}
+              >
+                <Text style={styles.addNewButtonText}>Add New</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={formData.veterinarian_id}
                 onValueChange={(value) => handleInputChange('veterinarian_id', value)}
                 style={styles.picker}
-                enabled={veterinarians.length > 0}
               >
                 {veterinarians.length === 0 ? (
                   <Picker.Item label="No veterinarians found" value={0} color="#999" />
@@ -467,7 +482,7 @@ export default function AddHealthRecordScreen() {
                     {veterinarians.map((vet) => (
                       <Picker.Item 
                         key={vet.id} 
-                        label={vet.name} 
+                        label={vet.name || `Veterinarian #${vet.id}`} 
                         value={vet.id} 
                       />
                     ))}

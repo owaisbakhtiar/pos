@@ -4,7 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import BottomTabs from "./src/navigation/BottomTabs";
 import AuthStack from "./src/navigation/AuthStack";
-import { View, ActivityIndicator, Text } from "react-native";
+import { View, ActivityIndicator, Text, Button } from "react-native";
 import { colors } from "./src/theme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
@@ -20,6 +20,64 @@ import AddHealthRecordScreen from "./src/screens/HealthRecords/AddHealthRecordSc
 import EditHealthRecordScreen from "./src/screens/HealthRecords/EditHealthRecordScreen";
 import HealthRecordDetailScreen from "./src/screens/HealthRecords/HealthRecordDetailScreen";
 import ManageVeterinariansScreen from "./src/screens/HealthRecords/ManageVeterinariansScreen";
+import VaccinationScreen from "./src/screens/Vaccination/VaccinationScreen";
+import ManageVaccinesScreen from "./src/screens/HealthRecords/ManageVaccinesScreen";
+import BreedingScreen from "./src/screens/Breeding/BreedingScreen";
+
+// Error Boundary component
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { 
+    hasError: false, 
+    error: null 
+  };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error("Error in component:", error, errorInfo);
+  }
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ fontSize: 16, marginBottom: 20, textAlign: 'center' }}>
+            {this.state.error?.message || "An unexpected error occurred"}
+          </Text>
+          <Button 
+            title="Try Again" 
+            onPress={() => this.setState({ hasError: false, error: null })} 
+          />
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// SafeBreedingScreen wrapped with error boundary
+const SafeBreedingScreen = () => {
+  return (
+    <ErrorBoundary>
+      <BreedingScreen />
+    </ErrorBoundary>
+  );
+};
 
 const Stack = createNativeStackNavigator();
 
@@ -60,12 +118,13 @@ function AppNavigator() {
             <Stack.Screen name="EditHealthRecord" component={EditHealthRecordScreen} />
             <Stack.Screen name="HealthRecordDetail" component={HealthRecordDetailScreen} />
             <Stack.Screen name="ManageVeterinarians" component={ManageVeterinariansScreen} />
-            <Stack.Screen name="ManageVaccines" component={PlaceholderScreen} />
+            <Stack.Screen name="ManageVaccines" component={ManageVaccinesScreen} />
             <Stack.Screen name="Profile" component={ProfileStack} />
             
             {/* Placeholder screens for side menu items */}
             <Stack.Screen name="Feed" component={PlaceholderScreen} />
-            <Stack.Screen name="Vaccination" component={PlaceholderScreen} />
+            <Stack.Screen name="Vaccination" component={VaccinationScreen} />
+            <Stack.Screen name="Breeding" component={SafeBreedingScreen} />
             <Stack.Screen name="Milk" component={PlaceholderScreen} />
           </>
         ) : (

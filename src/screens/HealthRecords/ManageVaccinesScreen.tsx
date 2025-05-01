@@ -28,7 +28,7 @@ type RootStackParamList = {
   Home: undefined;
   HealthRecords: undefined;
   ManageVaccines: undefined;
-  AddHealthRecord: undefined;
+  Vaccination: undefined;
 };
 
 // Vaccine card component
@@ -46,13 +46,13 @@ const VaccineCard = ({
       <View style={styles.cardHeader}>
         <Text style={styles.vaccineName}>{vaccine.name}</Text>
         <View style={styles.dosesBadge}>
-          <Text style={styles.dosesText}>{vaccine.doses} {vaccine.doses === 1 ? 'Dose' : 'Doses'}</Text>
+          <Text style={styles.dosesText}>{vaccine.doses} {vaccine.doses === 1 ? 'dose' : 'doses'}</Text>
         </View>
       </View>
       
       <View style={styles.cardBody}>
         <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={16} color="#7A869A" />
+          <Text style={styles.detailLabel}>Interval:</Text>
           <Text style={styles.detailValue}>
             {vaccine.intervalDays} {vaccine.intervalDays === 1 ? 'day' : 'days'} between doses
           </Text>
@@ -60,6 +60,7 @@ const VaccineCard = ({
         
         {vaccine.description && (
           <View style={styles.descriptionContainer}>
+            <Text style={styles.descriptionLabel}>Description:</Text>
             <Text style={styles.descriptionValue}>{vaccine.description}</Text>
           </View>
         )}
@@ -107,7 +108,7 @@ export default function ManageVaccinesScreen() {
     farm_id: 1, // Default farm ID, should come from context or settings
     name: '',
     doses: 1,
-    interval_days: 0,
+    interval_days: 21, // Default 21 days between doses
     description: '',
   });
   
@@ -182,44 +183,39 @@ export default function ManageVaccinesScreen() {
     fetchVaccines(1, searchQuery);
   };
   
-  // Open add vaccine modal
+  // Add new vaccine
   const handleAddNew = () => {
     setFormData({
-      farm_id: 1, // Default farm ID, should come from context or settings
+      farm_id: 1,
       name: '',
       doses: 1,
-      interval_days: 0,
+      interval_days: 21,
       description: '',
     });
+    
     setEditingVaccine(null);
     setModalVisible(true);
   };
   
-  // Open edit vaccine modal
+  // Edit existing vaccine
   const handleEdit = (vaccine: Vaccine) => {
     setFormData({
       farm_id: vaccine.farmId,
       name: vaccine.name,
       doses: vaccine.doses,
       interval_days: vaccine.intervalDays,
-      description: vaccine.description,
+      description: vaccine.description
     });
+    
     setEditingVaccine(vaccine);
     setModalVisible(true);
   };
   
   // Handle form input changes
   const handleInputChange = (field: keyof VaccineFormData, value: string | number) => {
-    let processedValue = value;
-    
-    // Convert string number inputs to actual numbers
-    if (field === 'doses' || field === 'interval_days') {
-      processedValue = Number(value) || 0;
-    }
-    
     setFormData(prev => ({
       ...prev,
-      [field]: processedValue
+      [field]: value
     }));
   };
   
@@ -231,7 +227,12 @@ export default function ManageVaccinesScreen() {
     }
     
     if (formData.doses < 1) {
-      Alert.alert('Validation Error', 'Doses must be at least 1');
+      Alert.alert('Validation Error', 'Number of doses must be at least 1');
+      return false;
+    }
+    
+    if (formData.interval_days < 0) {
+      Alert.alert('Validation Error', 'Interval days cannot be negative');
       return false;
     }
     
@@ -268,7 +269,7 @@ export default function ManageVaccinesScreen() {
   const handleDelete = (vaccine: Vaccine) => {
     Alert.alert(
       'Confirm Delete',
-      `Are you sure you want to delete ${vaccine.name}?`,
+      `Are you sure you want to delete "${vaccine.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 

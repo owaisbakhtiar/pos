@@ -226,11 +226,60 @@ class HealthRecordService {
         url += `&search=${encodeURIComponent(search)}`;
       }
       
+      console.log(`Making API call to: ${url}`);
       const response = await api.get(url);
+      console.log(`API response for vets:`, JSON.stringify(response.data));
+      
+      // Verify the data structure is correct
+      if (!response.data || !response.data.data) {
+        console.error('Missing data in veterinarians response');
+        return { vets: [], pagination: { total: 0, count: 0, per_page: 10, current_page: 1, total_pages: 1 } };
+      }
+      
+      // Handle if the data format doesn't match our expected structure
+      let vets: Veterinarian[] = [];
+      if (Array.isArray(response.data.data)) {
+        // Direct array response
+        vets = response.data.data;
+      } else if (response.data.data.data && Array.isArray(response.data.data.data)) {
+        // Nested data structure with pagination
+        vets = response.data.data.data;
+      } else {
+        console.error('Unexpected veterinarians data format:', response.data);
+        vets = [];
+      }
+      
+      // Map the vet data to ensure it matches our interface
+      const mappedVets = vets.map(vet => {
+        // Convert API response fields to match our interface
+        const mappedVet: Veterinarian = {
+          id: vet.id || 0,
+          farmId: vet.farmId || (vet as any).farm_id || 0,
+          name: vet.name || 'Unknown',
+          licenseNumber: vet.licenseNumber || (vet as any).license_number || null,
+          specialty: vet.specialty || null,
+          contactNumber: vet.contactNumber || (vet as any).contact_number || '',
+          email: vet.email || null,
+          address: vet.address || '',
+          description: vet.description || '',
+          createdAt: vet.createdAt || (vet as any).created_at || '',
+          updatedAt: vet.updatedAt || (vet as any).updated_at || ''
+        };
+        return mappedVet;
+      });
+
+      // Get pagination data with safe fallbacks
+      const pagination = {
+        total: response.data.data.pagination?.total || vets.length,
+        count: response.data.data.pagination?.count || vets.length,
+        per_page: response.data.data.pagination?.per_page || 10,
+        current_page: response.data.data.pagination?.current_page || 1,
+        total_pages: response.data.data.pagination?.total_pages || 1
+      };
       
       return {
-        vets: response.data.data.data,
-        pagination: response.data.data.pagination
+        vets: mappedVets,
+        pagination
       };
     } catch (error) {
       console.error('Error fetching veterinarians:', error);
