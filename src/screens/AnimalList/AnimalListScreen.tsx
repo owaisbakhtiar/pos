@@ -7,7 +7,7 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
-} from 'react-native';
+} from 'react-native-safe-area-context';
 import { Text } from '../../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Switch,
-} from 'react-native';
+} from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button } from '../../components/common';
 import { Ionicons } from '@expo/vector-icons';

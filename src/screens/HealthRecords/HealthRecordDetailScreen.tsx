@@ -8,7 +8,7 @@ import {
   Image,
   Alert,
   Modal,
-} from 'react-native';
+} from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../components/common';

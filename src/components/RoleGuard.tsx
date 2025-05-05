@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { View } from 'react-native';
+import { View } from 'react-native-safe-area-context';
 import { useRoleAccess } from '../hooks/useRoleAccess';
 
 interface RoleGuardProps {

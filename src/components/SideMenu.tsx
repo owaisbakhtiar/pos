@@ -8,7 +8,7 @@ import {
   Dimensions,
   ScrollView,
   Alert,
-} from 'react-native';
+} from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './common';
 import { colors } from '../theme';
