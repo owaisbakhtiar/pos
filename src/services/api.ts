@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { jwtDecode } from 'jwt-decode';
 import { DecodedToken } from '../types/auth';
-import { DeviceEventEmitter, Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native-safe-area-context';
 
 // Configuration for different environments
 const API_CONFIG = {

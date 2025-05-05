@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import api from '../services/api';
 import { User, AuthState, DecodedToken } from '../types/auth';
 import axios from 'axios';
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter } from 'react-native-safe-area-context';
 
 // Default auth state
 const defaultAuthState: AuthState = {
